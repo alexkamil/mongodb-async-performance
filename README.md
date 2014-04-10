@@ -1,3 +1,4 @@
+[![Build Status](https://travis-ci.org/allanbank/mongodb-async-performance.svg?branch=master)](https://travis-ci.org/allanbank/mongodb-async-performance)
 MongoDB Asynchronous Driver Performance Tools
 =============================================
 
