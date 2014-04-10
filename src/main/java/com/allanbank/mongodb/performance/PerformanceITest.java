@@ -260,7 +260,7 @@ public class PerformanceITest {
                 for (final String toRun : runOrder) {
                     cleanup();
                     if ("legacy".equals(toRun)) {
-                        legacy = runSyncInsertRate(WriteConcern.NONE, count);
+                        legacy = runSyncInsertRate(WriteConcern.UNACKNOWLEDGED, count);
                     }
                     else if ("async".equals(toRun)) {
                         async = runAsyncInsertRate(durability, count);
@@ -446,7 +446,7 @@ public class PerformanceITest {
                 for (final String toRun : runOrder) {
                     cleanup();
                     if ("legacy".equals(toRun)) {
-                        legacy = runSyncUpdateRate(WriteConcern.NONE, count);
+                        legacy = runSyncUpdateRate(WriteConcern.UNACKNOWLEDGED, count);
                     }
                     else if ("async".equals(toRun)) {
                         async = runAsyncUpdateRate(durability, count);
