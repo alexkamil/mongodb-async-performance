@@ -40,6 +40,7 @@ import org.junit.BeforeClass;
 import org.junit.Test;
 import org.junit.runner.JUnitCore;
 
+import com.allanbank.mongodb.bson.Document;
 import com.allanbank.mongodb.bson.builder.ArrayBuilder;
 import com.allanbank.mongodb.bson.builder.BuilderFactory;
 import com.allanbank.mongodb.bson.builder.DocumentBuilder;
@@ -55,13 +56,13 @@ import com.allanbank.mongodb.bson.io.BufferingBsonOutputStream;
 public class BsonPerformanceITest {
 
     /** The format for the data in the report. */
-    public static final String DATA_FORMAT = "%40s | %8.5f | %8.5f | %8.5f\n";
+    public static final String DATA_FORMAT = "%45s | %,10.3f | %,10.3f | %,10.3f\n";
 
     /** The number of iterations in a loop. */
     public static final int ITERATIONS = 1000000;
 
     /** The format for the label in the report. */
-    public static final String LABEL_FORMAT = "%40s | %-8s | %-8s | %-8s\n";
+    public static final String LABEL_FORMAT = "%45s | %-10s | %-10s | %-10s\n";
 
     /** Number of levels in the binary tree for the large document. */
     public static final int LARGE_DOC_LEVELS = 18;
@@ -202,7 +203,52 @@ public class BsonPerformanceITest {
      * </pre></code></blockquote>
      */
     @Test
-    public void testLargeDocumentReadWritePerformance() {
+    public void testLargeDocumentCreateAndWritePerformance() {
+
+        for (int level = 1; level <= LARGE_DOC_LEVELS; level += 3) {
+
+            String label = "Create & Write BSON " + level + " Level Tree";
+
+            double legacy = doLegacyLargeDocCreateAndWrite(level);
+            double bstream = doBStreamLargeDocCreateAndWrite(level);
+            double bufferedBstream = doBufferedBStreamLargeDocCreateAndWrite(level);
+
+            System.out.printf(DATA_FORMAT, label, Double.valueOf(legacy),
+                    Double.valueOf(bstream), Double.valueOf(bufferedBstream));
+        }
+    }
+
+    /**
+     * Measures the relative performance for reading and writing a large
+     * document of the format below. The integer values are randomly generated.
+     * <blockquote> <code><pre>
+     * {
+     *    _id : &lt;integer&gt;,
+     *    left_1 : {
+     *       left_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *       right_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *    }
+     *    right_1 : {
+     *       left_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *       right_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *    }
+     * }
+     * </pre></code></blockquote>
+     */
+    @Test
+    public void testLargeDocumentReadPerformance() {
 
         final BasicBSONEncoder encoder = new BasicBSONEncoder();
 
@@ -221,15 +267,50 @@ public class BsonPerformanceITest {
 
             System.out.printf(DATA_FORMAT, label, Double.valueOf(legacy),
                     Double.valueOf(bstream), Double.valueOf(-1));
+        }
+    }
 
-            // Now write it.
-            label = "Write BSON " + level + " Level Tree";
+    /**
+     * Measures the relative performance for reading and writing a large
+     * document of the format below. The integer values are randomly generated.
+     * <blockquote> <code><pre>
+     * {
+     *    _id : &lt;integer&gt;,
+     *    left_1 : {
+     *       left_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *       right_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *    }
+     *    right_1 : {
+     *       left_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *       right_2: {
+     *          ... to N levels of nesting.
+     *          v : &lt;integer&gt;
+     *       }
+     *    }
+     * }
+     * </pre></code></blockquote>
+     */
+    @Test
+    public void testLargeDocumentWritePerformance() {
+        for (int level = 1; level <= LARGE_DOC_LEVELS; level += 3) {
 
-            legacy = doLegacyLargeDocWrite(level);
-            bstream = doBStreamLargeDocWrite(level);
+            String label = "Write BSON " + level + " Level Tree";
+
+            double legacy = doLegacyLargeDocWrite(level);
+            double bstream = doBStreamLargeDocWrite(level);
+            double bufferedBstream = doBufferedBStreamLargeDocWrite(level);
 
             System.out.printf(DATA_FORMAT, label, Double.valueOf(legacy),
-                    Double.valueOf(bstream), Double.valueOf(-1));
+                    Double.valueOf(bstream), Double.valueOf(bufferedBstream));
         }
     }
 
@@ -392,9 +473,9 @@ public class BsonPerformanceITest {
      * @param levels
      *            The number of levels to create in the tree.
      * @return The time to write each document in microseconds.
-     * @see #testLargeDocumentReadWritePerformance()
+     * @see #testLargeDocumentWritePerformance()
      */
-    protected double doBStreamLargeDocWrite(final int levels) {
+    protected double doBStreamLargeDocCreateAndWrite(final int levels) {
 
         final DocumentBuilder builder = BuilderFactory.start();
         final BsonOutputStream bout = new BsonOutputStream(
@@ -410,6 +491,43 @@ public class BsonPerformanceITest {
                 addLevel(builder, 1, levels);
 
                 bout.writeDocument(builder.build());
+            }
+
+            final long endTime = System.nanoTime();
+            final double delta = ((double) (endTime - startTime))
+                    / TimeUnit.MICROSECONDS.toNanos(1);
+            return (delta / iterations);
+        }
+        catch (final IOException error) {
+            fail(error.getMessage());
+            return -1;
+        }
+    }
+
+    /**
+     * Writes large documents to a {@link BsonOutputStream}.
+     * 
+     * @param levels
+     *            The number of levels to create in the tree.
+     * @return The time to write each document in microseconds.
+     * @see #testLargeDocumentWritePerformance()
+     */
+    protected double doBStreamLargeDocWrite(final int levels) {
+
+        final DocumentBuilder builder = BuilderFactory.start();
+        final BsonOutputStream bout = new BsonOutputStream(
+                new DevNullOutputStream());
+        try {
+            final int iterations = ITERATIONS / (levels << 1);
+
+            builder.reset();
+            builder.addInteger("_id", myRandom.nextInt());
+            addLevel(builder, 1, levels);
+            Document doc = builder.build();
+
+            final long startTime = System.nanoTime();
+            for (int i = 0; i < iterations; ++i) {
+                bout.writeDocument(doc);
             }
 
             final long endTime = System.nanoTime();
@@ -606,9 +724,9 @@ public class BsonPerformanceITest {
      * @param levels
      *            The number of levels to create in the tree.
      * @return The time to write each document in microseconds.
-     * @see #testLargeDocumentReadWritePerformance()
+     * @see #testLargeDocumentCreateAndWritePerformance()
      */
-    protected double doBufferedBStreamLargeDocWrite(final int levels) {
+    protected double doBufferedBStreamLargeDocCreateAndWrite(final int levels) {
         final DocumentBuilder builder = BuilderFactory.start();
         final BufferingBsonOutputStream bwriter = new BufferingBsonOutputStream(
                 new DevNullOutputStream());
@@ -623,6 +741,44 @@ public class BsonPerformanceITest {
                 addLevel(builder, 1, levels);
 
                 bwriter.write(builder.build());
+            }
+
+            final long endTime = System.nanoTime();
+            final double delta = ((double) (endTime - startTime))
+                    / TimeUnit.MICROSECONDS.toNanos(1);
+            return (delta / iterations);
+        }
+        catch (final IOException error) {
+            fail(error.getMessage());
+            return -1;
+        }
+        finally {
+            close(bwriter);
+        }
+    }
+
+    /**
+     * Writes large documents to a {@link BufferingBsonOutputStream}.
+     * 
+     * @param levels
+     *            The number of levels to create in the tree.
+     * @return The time to write each document in microseconds.
+     * @see #testLargeDocumentWritePerformance()
+     */
+    protected double doBufferedBStreamLargeDocWrite(final int levels) {
+        final DocumentBuilder builder = BuilderFactory.start();
+        final BufferingBsonOutputStream bwriter = new BufferingBsonOutputStream(
+                new DevNullOutputStream());
+        try {
+            final int iterations = ITERATIONS / (levels << 1);
+            builder.reset();
+            builder.addInteger("_id", myRandom.nextInt());
+            addLevel(builder, 1, levels);
+            Document doc = builder.build();
+
+            final long startTime = System.nanoTime();
+            for (int i = 0; i < iterations; ++i) {
+                bwriter.write(doc);
             }
 
             final long endTime = System.nanoTime();
@@ -785,9 +941,9 @@ public class BsonPerformanceITest {
      * @param levels
      *            The number of levels to create in the tree.
      * @return The time to write each document in microseconds.
-     * @see #testLargeDocumentReadWritePerformance()
+     * @see #testLargeDocumentCreateAndWritePerformance()
      */
-    protected double doLegacyLargeDocWrite(final int levels) {
+    protected double doLegacyLargeDocCreateAndWrite(final int levels) {
         final BasicBSONEncoder encoder = new BasicBSONEncoder();
 
         final int iterations = ITERATIONS / (levels << 1);
@@ -800,6 +956,35 @@ public class BsonPerformanceITest {
 
             addLegacyLevel(obj, 1, levels);
 
+            encoder.encode(obj);
+        }
+
+        final long endTime = System.nanoTime();
+        final double delta = ((double) (endTime - startTime))
+                / TimeUnit.MICROSECONDS.toNanos(1);
+        return (delta / iterations);
+    }
+
+    /**
+     * Writes large documents to a {@link BasicBSONEncoder}.
+     * 
+     * @param levels
+     *            The number of levels to create in the tree.
+     * @return The time to write each document in microseconds.
+     * @see #testLargeDocumentWritePerformance()
+     */
+    protected double doLegacyLargeDocWrite(final int levels) {
+        final BasicBSONEncoder encoder = new BasicBSONEncoder();
+
+        final int iterations = ITERATIONS / (levels << 1);
+
+        // Create the tree once.
+        final BasicBSONObject obj = new BasicBSONObject("_id",
+                Integer.valueOf(myRandom.nextInt()));
+        addLegacyLevel(obj, 1, levels);
+
+        final long startTime = System.nanoTime();
+        for (int i = 0; i < iterations; ++i) {
             encoder.encode(obj);
         }
 
@@ -896,7 +1081,7 @@ public class BsonPerformanceITest {
      * @param bytes
      *            The bytes of the document to be read.
      * @return The time to read each document in microseconds.
-     * @see #testLargeDocumentReadWritePerformance()
+     * @see #testLargeDocumentReadPerformance()
      */
     protected double doLegacyRead(final byte[] bytes) {
         return doLegacyRead(bytes, 1);
@@ -910,7 +1095,7 @@ public class BsonPerformanceITest {
      * @param divisor
      *            The divisor for the number of {@link #ITERATIONS}.
      * @return The time to read each document in microseconds.
-     * @see #testLargeDocumentReadWritePerformance()
+     * @see #testLargeDocumentReadPerformance()
      */
     protected double doLegacyRead(final byte[] bytes, final int divisor) {
         final BasicBSONDecoder decoder = new BasicBSONDecoder();
