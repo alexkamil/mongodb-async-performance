@@ -142,7 +142,7 @@ public class BsonPerformanceITest {
      *            Ignored.
      */
     public static void main(String[] args) {
-        JUnitCore.main(new String[] { BsonPerformanceITest.class.toString() });
+        JUnitCore.main(new String[] { BsonPerformanceITest.class.getName() });
     }
 
     /**

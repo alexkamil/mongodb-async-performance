@@ -70,7 +70,7 @@ public class PerformanceITest {
             System.setProperty("mongodb.server.uri", args[0]);
         }
 
-        JUnitCore.main(new String[] { PerformanceITest.class.toString() });
+        JUnitCore.main(new String[] { PerformanceITest.class.getName() });
     }
 
     /** The URI to use to connect to the server. */
@@ -260,7 +260,8 @@ public class PerformanceITest {
                 for (final String toRun : runOrder) {
                     cleanup();
                     if ("legacy".equals(toRun)) {
-                        legacy = runSyncInsertRate(WriteConcern.UNACKNOWLEDGED, count);
+                        legacy = runSyncInsertRate(WriteConcern.UNACKNOWLEDGED,
+                                count);
                     }
                     else if ("async".equals(toRun)) {
                         async = runAsyncInsertRate(durability, count);
@@ -446,7 +447,8 @@ public class PerformanceITest {
                 for (final String toRun : runOrder) {
                     cleanup();
                     if ("legacy".equals(toRun)) {
-                        legacy = runSyncUpdateRate(WriteConcern.UNACKNOWLEDGED, count);
+                        legacy = runSyncUpdateRate(WriteConcern.UNACKNOWLEDGED,
+                                count);
                     }
                     else if ("async".equals(toRun)) {
                         async = runAsyncUpdateRate(durability, count);
