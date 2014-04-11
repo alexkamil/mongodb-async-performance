@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
     <groupId>com.allanbank</groupId>
     <artifactId>mongodb-async-performance</artifactId>
-    <version>1.2.1</version>
+    <version>1.2.3</version>
     <name>mongodb-async-performance</name>
     <description>Performance test drivers for the MongoDB Asynchronous Driver.</description>
     
@@ -33,7 +33,7 @@
         <dependency>
             <groupId>org.mongodb</groupId>
             <artifactId>mongo-java-driver</artifactId>
-            <version>2.11.0</version>
+            <version>2.11.2</version>
         </dependency>
         <dependency>
             <groupId>junit</groupId>
