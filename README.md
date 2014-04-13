@@ -2,7 +2,7 @@
 MongoDB Asynchronous Driver Performance Tools
 =============================================
 
-This project contains a collection of applications for testing the prformance of the 
+This project contains a collection of applications for testing the performance of the 
 MongoDB Asynchronous Java Driver.
 
 Currently there are two test drivers provided:
@@ -14,9 +14,9 @@ Currently there are two test drivers provided:
 drivers BSON encoding an decoding for various document sizes and complexity. Sample 
 results are provided on the [driver's website][1].
 
-`PerformanceITest` provides a driver for measurung the performance of the driver when performing
+`PerformanceITest` provides a driver for measuring the performance of the driver when performing
 various read and write operations against a MongoDB server or cluster. Again sample results are 
-provided on the [driver's website][2].
+provided on the [driver's site][2].
 
 Both classes can be run via the command line or via JUnit.
 
