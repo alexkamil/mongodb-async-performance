@@ -24,6 +24,7 @@ import java.net.InetSocketAddress;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
@@ -120,7 +121,7 @@ public class PerformanceITest {
     private com.mongodb.DB mySyncDb = null;
 
     /** The synchronous mongo instance. */
-    private com.mongodb.Mongo mySyncMongo = null;
+    private com.mongodb.MongoClient mySyncMongo = null;
 
     /**
      * Cleans up the collections and databases from the test.
@@ -639,13 +640,23 @@ public class PerformanceITest {
      */
     protected double runAsyncInsertRateUsingCallback(
             final Durability durability, final int count) {
-        final Callback<Integer> noop = new NoopCallback<Integer>();
+        final CountDownLatch latch = new CountDownLatch(count);
+        final Callback<Integer> noop = new CountingCallback<Integer>(latch);
         final long startTime = System.nanoTime();
         for (int i = 0; i < count; ++i) {
             final DocumentBuilder builder = BuilderFactory.start();
             builder.addInteger("_id", i);
 
             myAsyncCollection.insertAsync(noop, durability, builder.build());
+        }
+
+        try {
+            latch.await();
+        }
+        catch (final InterruptedException e) {
+            final AssertionError error = new AssertionError(e.getMessage());
+            error.initCause(e);
+            throw error;
         }
 
         final long endTime = System.nanoTime();
@@ -746,7 +757,8 @@ public class PerformanceITest {
      */
     protected double runAsyncUpdateRateUsingCallback(
             final Durability durability, final int count) {
-        final Callback<Long> callback = new NoopCallback<Long>();
+        final CountDownLatch latch = new CountDownLatch(count);
+        final Callback<Long> callback = new CountingCallback<Long>(latch);
 
         final ObjectId id = new ObjectId();
         DocumentBuilder builder = BuilderFactory.start();
@@ -766,6 +778,16 @@ public class PerformanceITest {
         for (int i = 0; i < count; ++i) {
             myAsyncCollection.updateAsync(callback, query, update, durability);
         }
+
+        try {
+            latch.await();
+        }
+        catch (final InterruptedException e) {
+            final AssertionError error = new AssertionError(e.getMessage());
+            error.initCause(e);
+            throw error;
+        }
+
         final long endTime = System.nanoTime();
         final double delta = ((double) (endTime - startTime))
                 / TimeUnit.MILLISECONDS.toNanos(1);
@@ -881,14 +903,27 @@ public class PerformanceITest {
     }
 
     /**
-     * Callback that does nothing.
+     * Callback that counts callbacks.
      * 
      * @param <T>
      *            The type of the ignored callback.
      * 
      * @copyright 2011, Allanbank Consulting, Inc., All Rights Reserved
      */
-    public static class NoopCallback<T> implements Callback<T> {
+    public static class CountingCallback<T> implements Callback<T> {
+
+        /** The latch doing the counting. */
+        private final CountDownLatch myLatch;
+
+        /**
+         * Creates a new CountingCallback.
+         * 
+         * @param latch
+         *            The latch doing the counting.
+         */
+        public CountingCallback(CountDownLatch latch) {
+            myLatch = latch;
+        }
 
         /**
          * {@inheritDoc}
@@ -898,7 +933,7 @@ public class PerformanceITest {
          */
         @Override
         public void callback(final T result) {
-            // Nothing.
+            myLatch.countDown();
         }
 
         /**
@@ -909,7 +944,7 @@ public class PerformanceITest {
          */
         @Override
         public void exception(final Throwable thrown) {
-            // Nothing.
+            myLatch.countDown();
         }
     }
 }
