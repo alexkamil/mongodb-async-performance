@@ -37,6 +37,7 @@ import org.junit.runner.JUnitCore;
 
 import com.allanbank.mongodb.Callback;
 import com.allanbank.mongodb.Durability;
+import com.allanbank.mongodb.LockType;
 import com.allanbank.mongodb.MongoClient;
 import com.allanbank.mongodb.MongoClientConfiguration;
 import com.allanbank.mongodb.MongoCollection;
@@ -130,22 +131,17 @@ public class PerformanceITest {
     public void cleanup() {
         if (myAsyncCollection != null) {
             // Make sure the collection exists.
+            myAsyncCollection.drop();
             myAsyncCollection.insert(Durability.ACK, BuilderFactory.start()
                     .build());
             myAsyncCollection.delete(BuilderFactory.start().build(),
                     Durability.ACK);
         }
-        if (myAsyncDb != null) {
-            myAsyncDb.runCommand("repairDatabase");
-        }
 
         if (mySyncCollection != null) {
+            mySyncCollection.drop();
             mySyncCollection.insert(new BasicDBObject(), WriteConcern.SAFE);
             mySyncCollection.remove(new BasicDBObject(), WriteConcern.SAFE);
-        }
-        if (mySyncDb != null) {
-            mySyncDb.command(new BasicDBObject("repairDatabase", Integer
-                    .valueOf(1)));
         }
     }
 
@@ -159,6 +155,7 @@ public class PerformanceITest {
                     ourMongoServerUri);
             config.setMaxConnectionCount(1);
             config.setMaxPendingOperationsPerConnection(10 * 1024);
+            config.setLockType(LockType.LOW_LATENCY_SPIN);
 
             myAsyncMongo = MongoFactory.createClient(config);
             myAsyncDb = myAsyncMongo.getDatabase("asyncTest");
@@ -185,11 +182,11 @@ public class PerformanceITest {
      */
     @After
     public void tearDown() {
-        myAsyncCollection = null;
-        if (myAsyncDb != null) {
-            myAsyncDb.drop();
-            myAsyncDb = null;
+        if (myAsyncCollection != null) {
+            myAsyncCollection.drop();
+            myAsyncCollection = null;
         }
+        myAsyncDb = null;
         if (myAsyncMongo != null) {
             try {
                 myAsyncMongo.close();
@@ -200,11 +197,11 @@ public class PerformanceITest {
             }
         }
 
-        mySyncCollection = null;
-        if (mySyncDb != null) {
-            mySyncDb.dropDatabase();
-            mySyncDb = null;
+        if (mySyncCollection != null) {
+            mySyncCollection.drop();
+            mySyncCollection = null;
         }
+        mySyncDb = null;
         if (mySyncMongo != null) {
             mySyncMongo.close();
             mySyncMongo = null;
@@ -399,8 +396,8 @@ public class PerformanceITest {
     }
 
     /**
-     * Test to measure the performance of performing a series of pdateinserts
-     * into a collection.
+     * Test to measure the performance of performing a series of updates into a
+     * collection.
      */
     @Test
     public void testUpdateRate() {
