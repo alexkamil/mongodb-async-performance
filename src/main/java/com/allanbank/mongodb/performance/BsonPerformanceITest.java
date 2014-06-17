@@ -96,7 +96,7 @@ public class BsonPerformanceITest {
         ourSmallDocBytes = encoder.encode(obj);
 
         // Medium
-        final List<String> words = new ArrayList<String>();
+        final List<String> words = new ArrayList<>();
         for (int j = 0; j < 20; ++j) {
             words.add("10gen");
             words.add("web");
@@ -1006,7 +1006,7 @@ public class BsonPerformanceITest {
         final long startTime = System.nanoTime();
         for (int i = 0; i < ITERATIONS; ++i) {
 
-            final List<String> words = new ArrayList<String>();
+            final List<String> words = new ArrayList<>();
             for (int j = 0; j < 20; ++j) {
                 words.add("10gen");
                 words.add("web");

@@ -223,19 +223,19 @@ public class PerformanceITest {
         double legacy = 0;
         Durability durability;
 
-        final List<String> cases = new ArrayList<String>();
+        final List<String> cases = new ArrayList<>();
         cases.add("none");
         cases.add("ack");
         cases.add("normal");
 
-        final List<String> runCases = new ArrayList<String>();
+        final List<String> runCases = new ArrayList<>();
         runCases.addAll(cases);
         runCases.addAll(cases);
         runCases.addAll(cases);
         runCases.add("journal");
         runCases.add("fsync");
 
-        final List<String> runOrder = new ArrayList<String>();
+        final List<String> runOrder = new ArrayList<>();
         runOrder.add("async");
         runOrder.add("sync");
         runOrder.add("callback");
@@ -410,19 +410,19 @@ public class PerformanceITest {
         double legacy = 0;
         Durability durability;
 
-        final List<String> cases = new ArrayList<String>();
+        final List<String> cases = new ArrayList<>();
         cases.add("none");
         cases.add("normal");
         cases.add("ack");
 
-        final List<String> runCases = new ArrayList<String>();
+        final List<String> runCases = new ArrayList<>();
         runCases.addAll(cases);
         runCases.addAll(cases);
         runCases.addAll(cases);
         runCases.add("journal");
         runCases.add("fsync");
 
-        final List<String> runOrder = new ArrayList<String>();
+        final List<String> runOrder = new ArrayList<>();
         runOrder.add("async");
         runOrder.add("sync");
         runOrder.add("callback");
@@ -638,7 +638,7 @@ public class PerformanceITest {
     protected double runAsyncInsertRateUsingCallback(
             final Durability durability, final int count) {
         final CountDownLatch latch = new CountDownLatch(count);
-        final Callback<Integer> noop = new CountingCallback<Integer>(latch);
+        final Callback<Integer> noop = new CountingCallback<>(latch);
         final long startTime = System.nanoTime();
         for (int i = 0; i < count; ++i) {
             final DocumentBuilder builder = BuilderFactory.start();
@@ -755,7 +755,7 @@ public class PerformanceITest {
     protected double runAsyncUpdateRateUsingCallback(
             final Durability durability, final int count) {
         final CountDownLatch latch = new CountDownLatch(count);
-        final Callback<Long> callback = new CountingCallback<Long>(latch);
+        final Callback<Long> callback = new CountingCallback<>(latch);
 
         final ObjectId id = new ObjectId();
         DocumentBuilder builder = BuilderFactory.start();
