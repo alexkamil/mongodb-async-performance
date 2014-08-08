@@ -47,6 +47,8 @@ import com.allanbank.mongodb.bson.builder.DocumentBuilder;
 import com.allanbank.mongodb.bson.io.BsonInputStream;
 import com.allanbank.mongodb.bson.io.BsonOutputStream;
 import com.allanbank.mongodb.bson.io.BufferingBsonOutputStream;
+import com.allanbank.mongodb.bson.io.StringDecoderCache;
+import com.allanbank.mongodb.bson.io.StringEncoderCache;
 
 /**
  * BsonPerformanceITest provides performance tests for BSON reads and writes.
@@ -171,6 +173,7 @@ public class BsonPerformanceITest {
     @After
     public void tearDown() {
         myRandom = null;
+        myDecoderCache = null;
     }
 
     /**
@@ -327,6 +330,10 @@ public class BsonPerformanceITest {
         final String label = "Read Medium BSON Document ("
                 + ourMediumDocBytes.length + " Bytes):";
 
+        myDecoderCache = new StringDecoderCache();
+        myDecoderCache.setMaxCacheEntries(10240);
+        myDecoderCache.setMaxCacheLength(1024);
+
         final byte[] docBytes = ourMediumDocBytes;
         final double legacy = doLegacyRead(docBytes.clone());
         final double bstream = doBStreamRead(docBytes.clone());
@@ -436,6 +443,10 @@ public class BsonPerformanceITest {
         final String label = "Read Small BSON Document ("
                 + ourSmallDocBytes.length + " Bytes):";
 
+        myDecoderCache = new StringDecoderCache();
+        myDecoderCache.setMaxCacheEntries(1024);
+        myDecoderCache.setMaxCacheLength(SMALL_VALUE.length() + 1);
+
         final byte[] docBytes = ourSmallDocBytes;
         final double legacy = doLegacyRead(docBytes.clone());
         final double bstream = doBStreamRead(docBytes.clone());
@@ -477,9 +488,13 @@ public class BsonPerformanceITest {
      */
     protected double doBStreamLargeDocCreateAndWrite(final int levels) {
 
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(15);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BsonOutputStream bout = new BsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final int iterations = ITERATIONS / (levels << 1);
 
@@ -514,9 +529,13 @@ public class BsonPerformanceITest {
      */
     protected double doBStreamLargeDocWrite(final int levels) {
 
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(15);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BsonOutputStream bout = new BsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final int iterations = ITERATIONS / (levels << 1);
 
@@ -549,52 +568,53 @@ public class BsonPerformanceITest {
      */
     protected double doBStreamMediumDocWrite() {
 
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(256);
+        cache.setMaxCacheLength(100);
+
         final DocumentBuilder builder = BuilderFactory.start();
+        builder.addObjectId("_id",
+                new com.allanbank.mongodb.bson.element.ObjectId());
+        builder.addString("base_url", "http://www.example.com/test-me");
+        builder.addInteger("total_world_count", 6743);
+        builder.addTimestamp("access_time", System.currentTimeMillis()); // current
+                                                                         // time
+
+        DocumentBuilder subBuilder = builder.push("meta_tags");
+        subBuilder.addString("description", "i am a long description string");
+        subBuilder.addString("author", "Holly Man");
+        subBuilder.addString("dynamically_create_meta_tag", "who know\n what");
+
+        subBuilder = builder.push("page_structure");
+        subBuilder.addInteger("counted_tags", 3450);
+        subBuilder.addInteger("no_of_js_attached", 10);
+        subBuilder.addInteger("no_of_images", 6);
+
+        final ArrayBuilder aBuilder = builder.pushArray("harvested_words");
+        for (int j = 0; j < 20; ++j) {
+            aBuilder.addString("10gen");
+            aBuilder.addString("web");
+            aBuilder.addString("open");
+            aBuilder.addString("source");
+            aBuilder.addString("application");
+            aBuilder.addString("paas");
+            aBuilder.addString("platforma-as-a-service");
+            aBuilder.addString("technology");
+            aBuilder.addString("helps");
+            aBuilder.addString("developers");
+            aBuilder.addString("focus");
+            aBuilder.addString("building");
+            aBuilder.addString("mongodb");
+            aBuilder.addString("mongo");
+        }
+        Document doc = builder.build();
+
         final BsonOutputStream bout = new BsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final long startTime = System.nanoTime();
             for (int i = 0; i < ITERATIONS; ++i) {
-                builder.reset();
-                builder.addObjectId("_id",
-                        new com.allanbank.mongodb.bson.element.ObjectId());
-                builder.addString("base_url", "http://www.example.com/test-me");
-                builder.addInteger("total_world_count", 6743);
-                builder.addTimestamp("access_time", System.currentTimeMillis()); // current
-                                                                                 // time
-
-                DocumentBuilder subBuilder = builder.push("meta_tags");
-                subBuilder.addString("description",
-                        "i am a long description string");
-                subBuilder.addString("author", "Holly Man");
-                subBuilder.addString("dynamically_create_meta_tag",
-                        "who know\n what");
-
-                subBuilder = builder.push("page_structure");
-                subBuilder.addInteger("counted_tags", 3450);
-                subBuilder.addInteger("no_of_js_attached", 10);
-                subBuilder.addInteger("no_of_images", 6);
-
-                final ArrayBuilder aBuilder = builder
-                        .pushArray("harvested_words");
-                for (int j = 0; j < 20; ++j) {
-                    aBuilder.addString("10gen");
-                    aBuilder.addString("web");
-                    aBuilder.addString("open");
-                    aBuilder.addString("source");
-                    aBuilder.addString("application");
-                    aBuilder.addString("paas");
-                    aBuilder.addString("platforma-as-a-service");
-                    aBuilder.addString("technology");
-                    aBuilder.addString("helps");
-                    aBuilder.addString("developers");
-                    aBuilder.addString("focus");
-                    aBuilder.addString("building");
-                    aBuilder.addString("mongodb");
-                    aBuilder.addString("mongo");
-                }
-
-                bout.writeDocument(builder.build());
+                bout.writeDocument(doc);
             }
 
             final long endTime = System.nanoTime();
@@ -616,9 +636,13 @@ public class BsonPerformanceITest {
      */
     protected double doBStreamMicroDocWrite() {
 
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(15);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BsonOutputStream bout = new BsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final long startTime = System.nanoTime();
             for (int i = 0; i < ITERATIONS; ++i) {
@@ -650,6 +674,9 @@ public class BsonPerformanceITest {
         return doBStreamRead(bytes, 1);
     }
 
+    /** The String decoder cache. */
+    private StringDecoderCache myDecoderCache = null;
+
     /**
      * Reads documents via a {@link BsonInputStream}.
      * 
@@ -661,8 +688,14 @@ public class BsonPerformanceITest {
      */
     protected double doBStreamRead(final byte[] bytes, final int divisor) {
 
+        if (myDecoderCache == null) {
+            myDecoderCache = new StringDecoderCache();
+            myDecoderCache.setMaxCacheEntries(1024);
+            myDecoderCache.setMaxCacheLength(100);
+        }
+
         final ByteArrayInputStream in = new ByteArrayInputStream(bytes);
-        final BsonInputStream bin = new BsonInputStream(in);
+        final BsonInputStream bin = new BsonInputStream(in, myDecoderCache);
         try {
             final int iterations = ITERATIONS / divisor;
             final long startTime = System.nanoTime();
@@ -694,9 +727,13 @@ public class BsonPerformanceITest {
      */
     protected double doBStreamSmallDocWrite() {
 
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(SMALL_VALUE.length() + 1);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BsonOutputStream bout = new BsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final long startTime = System.nanoTime();
             for (int i = 0; i < ITERATIONS; ++i) {
@@ -727,9 +764,13 @@ public class BsonPerformanceITest {
      * @see #testLargeDocumentCreateAndWritePerformance()
      */
     protected double doBufferedBStreamLargeDocCreateAndWrite(final int levels) {
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(15);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BufferingBsonOutputStream bwriter = new BufferingBsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final int iterations = ITERATIONS / (levels << 1);
 
@@ -766,9 +807,13 @@ public class BsonPerformanceITest {
      * @see #testLargeDocumentWritePerformance()
      */
     protected double doBufferedBStreamLargeDocWrite(final int levels) {
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(15);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BufferingBsonOutputStream bwriter = new BufferingBsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final int iterations = ITERATIONS / (levels << 1);
             builder.reset();
@@ -802,53 +847,56 @@ public class BsonPerformanceITest {
      * @see #testMediumDocumentWritePerformance()
      */
     protected double doBufferedBStreamMediumDocWrite() {
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(256);
+        cache.setMaxCacheLength(100);
+
         final DocumentBuilder builder = BuilderFactory.start();
+        builder.addObjectId("_id",
+                new com.allanbank.mongodb.bson.element.ObjectId());
+        builder.addString("base_url", "http://www.example.com/test-me");
+        builder.addInteger("total_world_count", 6743);
+        builder.addTimestamp("access_time", System.currentTimeMillis()); // current
+                                                                         // time
+
+        DocumentBuilder subBuilder = builder.push("meta_tags");
+        subBuilder.addString("description", "i am a long description string");
+        subBuilder.addString("author", "Holly Man");
+        subBuilder.addString("dynamically_create_meta_tag", "who know\n what");
+
+        subBuilder = builder.push("page_structure");
+        subBuilder.addInteger("counted_tags", 3450);
+        subBuilder.addInteger("no_of_js_attached", 10);
+        subBuilder.addInteger("no_of_images", 6);
+
+        final ArrayBuilder aBuilder = builder.pushArray("harvested_words");
+        for (int j = 0; j < 20; ++j) {
+            aBuilder.addString("10gen");
+            aBuilder.addString("web");
+            aBuilder.addString("open");
+            aBuilder.addString("source");
+            aBuilder.addString("application");
+            aBuilder.addString("paas");
+            aBuilder.addString("platforma-as-a-service");
+            aBuilder.addString("technology");
+            aBuilder.addString("helps");
+            aBuilder.addString("developers");
+            aBuilder.addString("focus");
+            aBuilder.addString("building");
+            aBuilder.addString("mongodb");
+            aBuilder.addString("mongo");
+        }
+        Document doc = builder.build();
+
         final BufferingBsonOutputStream bwriter = new BufferingBsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final long startTime = System.nanoTime();
 
             for (int i = 0; i < ITERATIONS; ++i) {
                 builder.reset();
-                builder.addObjectId("_id",
-                        new com.allanbank.mongodb.bson.element.ObjectId());
-                builder.addString("base_url", "http://www.example.com/test-me");
-                builder.addInteger("total_world_count", 6743);
-                builder.addTimestamp("access_time", System.currentTimeMillis()); // current
-                                                                                 // time
 
-                DocumentBuilder subBuilder = builder.push("meta_tags");
-                subBuilder.addString("description",
-                        "i am a long description string");
-                subBuilder.addString("author", "Holly Man");
-                subBuilder.addString("dynamically_create_meta_tag",
-                        "who know\n what");
-
-                subBuilder = builder.push("page_structure");
-                subBuilder.addInteger("counted_tags", 3450);
-                subBuilder.addInteger("no_of_js_attached", 10);
-                subBuilder.addInteger("no_of_images", 6);
-
-                final ArrayBuilder aBuilder = builder
-                        .pushArray("harvested_words");
-                for (int j = 0; j < 20; ++j) {
-                    aBuilder.addString("10gen");
-                    aBuilder.addString("web");
-                    aBuilder.addString("open");
-                    aBuilder.addString("source");
-                    aBuilder.addString("application");
-                    aBuilder.addString("paas");
-                    aBuilder.addString("platforma-as-a-service");
-                    aBuilder.addString("technology");
-                    aBuilder.addString("helps");
-                    aBuilder.addString("developers");
-                    aBuilder.addString("focus");
-                    aBuilder.addString("building");
-                    aBuilder.addString("mongodb");
-                    aBuilder.addString("mongo");
-                }
-
-                bwriter.write(builder.build());
+                bwriter.write(doc);
             }
 
             final long endTime = System.nanoTime();
@@ -872,9 +920,13 @@ public class BsonPerformanceITest {
      * @see #testMicroDocumentWritePerformance()
      */
     protected double doBufferedBStreamMicroDocWrite() {
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(15);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BufferingBsonOutputStream bwriter = new BufferingBsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final long startTime = System.nanoTime();
 
@@ -907,9 +959,13 @@ public class BsonPerformanceITest {
      * @see #testSmallDocumentWritePerformance()
      */
     protected double doBufferedBStreamSmallDocWrite() {
+        final StringEncoderCache cache = new StringEncoderCache();
+        cache.setMaxCacheEntries(1024);
+        cache.setMaxCacheLength(SMALL_VALUE.length() + 1);
+
         final DocumentBuilder builder = BuilderFactory.start();
         final BufferingBsonOutputStream bwriter = new BufferingBsonOutputStream(
-                new DevNullOutputStream());
+                new DevNullOutputStream(), cache);
         try {
             final long startTime = System.nanoTime();
 
@@ -1001,47 +1057,47 @@ public class BsonPerformanceITest {
      * @see #testMediumDocumentWritePerformance()
      */
     protected double doLegacyMediumDocWrite() {
+        final List<String> words = new ArrayList<>();
+        for (int j = 0; j < 20; ++j) {
+            words.add("10gen");
+            words.add("web");
+            words.add("open");
+            words.add("source");
+            words.add("application");
+            words.add("paas");
+            words.add("platforma-as-a-service");
+            words.add("technology");
+            words.add("helps");
+            words.add("developers");
+            words.add("focus");
+            words.add("building");
+            words.add("mongodb");
+            words.add("mongo");
+        }
+        final BasicBSONObject meta = new BasicBSONObject();
+        meta.append("description", "i am a long description string");
+        meta.append("author", "Holly Man");
+        meta.append("dynamically_create_meta_tag", "who know\n what");
+
+        final BasicBSONObject struct = new BasicBSONObject();
+        struct.append("counted_tags", Integer.valueOf(3450));
+        struct.append("no_of_js_attached", Integer.valueOf(10));
+        struct.append("no_of_images", Integer.valueOf(6));
+
+        final BasicBSONObject obj = new BasicBSONObject("_id",
+                new org.bson.types.ObjectId());
+
+        obj.append("base_url", "http://www.example.com/test-me");
+        obj.append("total_world_count", Integer.valueOf(6743));
+        obj.append("access_time", new Date()); // current time
+        obj.append("meta_tags", meta);
+        obj.append("page_structure", struct);
+        obj.append("harvested_words", words);
+
         final BasicBSONEncoder encoder = new BasicBSONEncoder();
 
         final long startTime = System.nanoTime();
         for (int i = 0; i < ITERATIONS; ++i) {
-
-            final List<String> words = new ArrayList<>();
-            for (int j = 0; j < 20; ++j) {
-                words.add("10gen");
-                words.add("web");
-                words.add("open");
-                words.add("source");
-                words.add("application");
-                words.add("paas");
-                words.add("platforma-as-a-service");
-                words.add("technology");
-                words.add("helps");
-                words.add("developers");
-                words.add("focus");
-                words.add("building");
-                words.add("mongodb");
-                words.add("mongo");
-            }
-            final BasicBSONObject meta = new BasicBSONObject();
-            meta.append("description", "i am a long description string");
-            meta.append("author", "Holly Man");
-            meta.append("dynamically_create_meta_tag", "who know\n what");
-
-            final BasicBSONObject struct = new BasicBSONObject();
-            struct.append("counted_tags", Integer.valueOf(3450));
-            struct.append("no_of_js_attached", Integer.valueOf(10));
-            struct.append("no_of_images", Integer.valueOf(6));
-
-            final BasicBSONObject obj = new BasicBSONObject("_id",
-                    new org.bson.types.ObjectId());
-
-            obj.append("base_url", "http://www.example.com/test-me");
-            obj.append("total_world_count", Integer.valueOf(6743));
-            obj.append("access_time", new Date()); // current time
-            obj.append("meta_tags", meta);
-            obj.append("page_structure", struct);
-            obj.append("harvested_words", words);
 
             encoder.encode(obj);
         }
